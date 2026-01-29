@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'routine_form.dart';
 import 'settings_page.dart';
 import 'weekly_view.dart';
 import 'reports_page.dart';
-import 'theme_controller.dart'; // <--- 1. Import necessário
+import 'main.dart';
+import 'theme_controller.dart'; 
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -16,7 +16,7 @@ class AppDrawer extends StatelessWidget {
     return Drawer(
       // Fundo do Menu: Branco no claro, Slate 800 no escuro
       backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-      
+
       child: Column(
         children: [
           // --- CABEÇALHO DO MENU (Perfil) ---
@@ -25,23 +25,29 @@ class AppDrawer extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 // Linha divisória mais sutil no modo escuro
-                bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+                bottom: BorderSide(
+                  color: isDark ? Colors.white10 : Colors.black12,
+                ),
               ),
             ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 25,
-                  backgroundColor: isDark ? Colors.white10 : Colors.deepPurple.shade50,
+                  backgroundColor: isDark
+                      ? Colors.white10
+                      : Colors.deepPurple.shade50,
                   child: Icon(
                     Icons.person_outline,
-                    color: isDark ? Colors.deepPurple.shade200 : Colors.deepPurple.shade400,
+                    color: isDark
+                        ? Colors.deepPurple.shade200
+                        : Colors.deepPurple.shade400,
                     size: 30,
                   ),
                 ),
                 const SizedBox(width: 15),
                 Text(
-                  "Nome", 
+                  "Nome",
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -65,6 +71,12 @@ class AppDrawer extends StatelessWidget {
                   color: Colors.brown.shade400,
                   onTap: () {
                     Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const HomePage(),
+                      ),
+                    );
                   },
                 ),
                 _buildMenuItem(
@@ -82,23 +94,7 @@ class AppDrawer extends StatelessWidget {
                     );
                   },
                 ),
-                _buildMenuItem(
-                  context: context,
-                  icon: Icons.add_circle_outline,
-                  text: "Adicionar Rotina",
-                  isBold: true,
-                  // Se não passar cor, ele usa a padrão (que adapta pro dark mode)
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const RoutineFormPage(isEditing: false),
-                      ),
-                    );
-                  },
-                ),
+
                 _buildMenuItem(
                   context: context,
                   icon: Icons.bar_chart_rounded,
@@ -135,7 +131,7 @@ class AppDrawer extends StatelessWidget {
 
           // --- RODAPÉ DO MENU ---
           Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
-          
+
           // BOTÃO TEMA (AGORA FUNCIONAL)
           _buildMenuItem(
             context: context,
@@ -148,7 +144,7 @@ class AppDrawer extends StatelessWidget {
               ThemeController.instance.toggleTheme();
             },
           ),
-          
+
           _buildMenuItem(
             context: context,
             icon: Icons.logout,
@@ -172,8 +168,8 @@ class AppDrawer extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Cor do ícone: Se foi passada uma cor, usa ela. 
+
+    // Cor do ícone: Se foi passada uma cor, usa ela.
     // Se não (null), usa Cinza no claro e BrancoTransparente no escuro.
     final iconColor = color ?? (isDark ? Colors.white70 : Colors.black54);
 

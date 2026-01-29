@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'drawer.dart';
-import 'theme_controller.dart'; // <--- 1. Import necessário
+import 'theme_controller.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Variável para verificar se é Dark Mode para ajustar textos e ações
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       drawer: const AppDrawer(),
-      // Sem cor de fundo fixa (o main.dart controla)
-      
       appBar: AppBar(
         leading: Builder(
           builder: (context) {
@@ -20,7 +21,6 @@ class SettingsPage extends StatelessWidget {
             );
           },
         ),
-        // Sem cor de fundo fixa
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'Configurações',
@@ -28,21 +28,11 @@ class SettingsPage extends StatelessWidget {
         ),
         centerTitle: true,
         actions: [
-          // --- 2. BOTÃO DE TROCAR TEMA ---
           IconButton(
             icon: const Icon(Icons.brightness_6_outlined, color: Colors.white),
             onPressed: () {
               ThemeController.instance.toggleTheme();
             },
-          ),
-          // -------------------------------
-          IconButton(
-            icon: const CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.white24,
-              child: Icon(Icons.person, color: Colors.white, size: 20),
-            ),
-            onPressed: () {},
           ),
           const SizedBox(width: 12),
         ],
@@ -57,10 +47,20 @@ class SettingsPage extends StatelessWidget {
                 SettingsItem(
                   title: "Idioma",
                   trailingText: "Português",
+                  icon: Icons.language,
                   onTap: () {},
                 ),
                 const SizedBox(height: 10),
-                SettingsItem(title: "Tema", trailingText: "Dia", onTap: () {}),
+                // ITEM TEMA: Agora interativo!
+                SettingsItem(
+                  title: "Tema",
+                  trailingText: isDark ? "Escuro" : "Claro",
+                  icon: isDark ? Icons.dark_mode : Icons.light_mode,
+                  onTap: () {
+                    // Troca o tema ao clicar na opção também
+                    ThemeController.instance.toggleTheme();
+                  },
+                ),
               ],
             ),
 
@@ -69,9 +69,17 @@ class SettingsPage extends StatelessWidget {
             // --- GRUPO 2: SEGURANÇA ---
             SettingsGroup(
               children: [
-                SettingsItem(title: "Permissões", onTap: () {}),
+                SettingsItem(
+                  title: "Permissões",
+                  icon: Icons.security,
+                  onTap: () {},
+                ),
                 const SizedBox(height: 10),
-                SettingsItem(title: "Privacidade", onTap: () {}),
+                SettingsItem(
+                  title: "Privacidade",
+                  icon: Icons.lock,
+                  onTap: () {},
+                ),
               ],
             ),
 
@@ -80,9 +88,20 @@ class SettingsPage extends StatelessWidget {
             // --- GRUPO 3: GERAL ---
             SettingsGroup(
               children: [
-                SettingsItem(title: "Conta", onTap: () {}),
+                SettingsItem(title: "Conta", icon: Icons.person, onTap: () {}),
                 const SizedBox(height: 10),
-                SettingsItem(title: "Acessibilidade", onTap: () {}),
+                SettingsItem(
+                  title: "Acessibilidade",
+                  icon: Icons.accessibility,
+                  onTap: () {},
+                ),
+                const SizedBox(height: 10),
+                SettingsItem(
+                  title: "Sobre o App",
+                  icon: Icons.info_outline,
+                  trailingText: "v1.0.0",
+                  onTap: () {},
+                ),
               ],
             ),
           ],
@@ -100,17 +119,16 @@ class SettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Verifica Dark Mode
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        // No claro: Lilás (FAEFFF). No escuro: Transparente ou levemente mais claro que o fundo
-        color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFFAEFFF),
+        color: isDark
+            ? Colors.white.withOpacity(0.05)
+            : const Color(0xFFFAEFFF),
         borderRadius: BorderRadius.circular(20),
-        // No escuro adicionamos uma borda azulada sutil para destacar o grupo
-        border: isDark ? Border.all(color: Colors.blueAccent.withOpacity(0.3)) : null,
+        border: isDark ? Border.all(color: Colors.white10) : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -128,12 +146,14 @@ class SettingsGroup extends StatelessWidget {
 class SettingsItem extends StatelessWidget {
   final String title;
   final String? trailingText;
+  final IconData? icon; // Adicionei ícone opcional para ficar mais bonito
   final VoidCallback onTap;
 
   const SettingsItem({
     super.key,
     required this.title,
     this.trailingText,
+    this.icon,
     required this.onTap,
   });
 
@@ -149,11 +169,10 @@ class SettingsItem extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
-            // Cor do card: Branco (Claro) ou Slate 800 (Escuro) vindo do Theme
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(15),
             border: Border.all(
-              color: isDark ? Colors.white10 : Colors.grey.shade200
+              color: isDark ? Colors.white10 : Colors.grey.shade200,
             ),
             boxShadow: [
               BoxShadow(
@@ -164,25 +183,47 @@ class SettingsItem extends StatelessWidget {
             ],
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  // Texto Branco no escuro, Preto no claro
-                  color: isDark ? Colors.white : Colors.black87,
+              // Ícone Opcional à esquerda
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 20,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+                const SizedBox(width: 16),
+              ],
+
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
               ),
-              if (trailingText != null)
+
+              if (trailingText != null) ...[
                 Text(
                   trailingText!,
                   style: TextStyle(
-                    fontSize: 14, 
-                    color: isDark ? Colors.grey[400] : Colors.grey[600]
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isDark
+                        ? Colors.blueAccent[100]
+                        : const Color(0xFF2B4C8C),
                   ),
                 ),
+                const SizedBox(width: 8),
+              ],
+
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+              ),
             ],
           ),
         ),
