@@ -35,10 +35,7 @@ class DayFlowApp extends StatelessWidget {
             primaryColor: const Color(0xFF2B4C8C),
             scaffoldBackgroundColor: const Color(0xFFF5F5F5),
             cardColor: Colors.white,
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF2B4C8C),
-              iconTheme: IconThemeData(color: Colors.white),
-            ),
+            appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF2B4C8C), iconTheme: IconThemeData(color: Colors.white)),
             useMaterial3: true,
           ),
           darkTheme: ThemeData(
@@ -46,10 +43,7 @@ class DayFlowApp extends StatelessWidget {
             primaryColor: const Color(0xFF0F172A),
             scaffoldBackgroundColor: const Color(0xFF0F172A),
             cardColor: const Color(0xFF1E293B),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF0F172A),
-              iconTheme: IconThemeData(color: Colors.white),
-            ),
+            appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF0F172A), iconTheme: IconThemeData(color: Colors.white)),
             useMaterial3: true,
           ),
           home: const HomePage(),
@@ -82,44 +76,28 @@ class _HomePageState extends State<HomePage> {
     // DateTime.weekday retorna 1 (Segunda) a 7 (Domingo)
     final now = DateTime.now();
     switch (now.weekday) {
-      case 1:
-        return 'Seg';
-      case 2:
-        return 'Ter';
-      case 3:
-        return 'Qua';
-      case 4:
-        return 'Qui';
-      case 5:
-        return 'Sex';
-      case 6:
-        return 'Sab';
-      case 7:
-        return 'Dom';
-      default:
-        return '';
+      case 1: return 'Seg';
+      case 2: return 'Ter';
+      case 3: return 'Qua';
+      case 4: return 'Qui';
+      case 5: return 'Sex';
+      case 6: return 'Sab';
+      case 7: return 'Dom';
+      default: return '';
     }
   }
 
   String _getFullWeekDayName() {
     final now = DateTime.now();
     switch (now.weekday) {
-      case 1:
-        return 'Segunda-feira';
-      case 2:
-        return 'Terça-feira';
-      case 3:
-        return 'Quarta-feira';
-      case 4:
-        return 'Quinta-feira';
-      case 5:
-        return 'Sexta-feira';
-      case 6:
-        return 'Sábado';
-      case 7:
-        return 'Domingo';
-      default:
-        return '';
+      case 1: return 'Segunda-feira';
+      case 2: return 'Terça-feira';
+      case 3: return 'Quarta-feira';
+      case 4: return 'Quinta-feira';
+      case 5: return 'Sexta-feira';
+      case 6: return 'Sábado';
+      case 7: return 'Domingo';
+      default: return '';
     }
   }
 
@@ -130,11 +108,11 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() => isLoading = true);
-
+    
     try {
       // 1. Busca TUDO do banco
       final allRoutines = await DatabaseHelper.instance.readAllRoutines();
-
+      
       // 2. Descobre qual é o dia de hoje (ex: "Seg")
       final todayTag = _getWeekDayAbbreviation();
       todayLabel = _getFullWeekDayName(); // Para exibir na tela
@@ -144,10 +122,11 @@ class _HomePageState extends State<HomePage> {
       routines = allRoutines.where((r) {
         return r.days.contains(todayTag);
       }).toList();
+
     } catch (e) {
       print("Erro: $e");
     }
-
+    
     setState(() => isLoading = false);
   }
 
@@ -158,10 +137,7 @@ class _HomePageState extends State<HomePage> {
         title: const Text("Apagar Atividade?"),
         content: const Text("Isso removerá a atividade permanentemente."),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancelar"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -184,14 +160,11 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text(
-          'Minha Rotina',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Minha Rotina', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.brightness_6_outlined, color: Colors.white),
+            icon: const Icon(Icons.brightness_6_outlined, color: Colors.white), 
             onPressed: () => ThemeController.instance.toggleTheme(),
           ),
         ],
@@ -225,70 +198,51 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     // Exibe "Hoje (Segunda-feira)"
                     Text(
-                      "Hoje ($todayLabel)",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
+                      "Hoje ($todayLabel)", 
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      dateString,
-                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      dateString, 
+                      style: const TextStyle(color: Colors.grey, fontSize: 14)
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "${routines.length} atividades para hoje",
-                      style: TextStyle(
-                        color: isDark
-                            ? Colors.blueAccent
-                            : const Color(0xFF2B4C8C),
-                        fontWeight: FontWeight.w600,
-                      ),
+                      "${routines.length} atividades para hoje", 
+                      style: TextStyle(color: isDark ? Colors.blueAccent : const Color(0xFF2B4C8C), fontWeight: FontWeight.w600)
                     ),
                   ],
                 ),
               ],
             ),
           ),
-
+          
           Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : routines.isEmpty
+            child: isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : routines.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.event_available,
-                          size: 60,
-                          color: isDark
-                              ? Colors.grey.shade700
-                              : Colors.grey.shade300,
-                        ),
+                        Icon(Icons.event_available, size: 60, color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
                         const SizedBox(height: 16),
                         Text(
                           "Nada agendado para $todayLabel.",
-                          style: TextStyle(
-                            color: isDark ? Colors.grey : Colors.black54,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: isDark ? Colors.grey : Colors.black54, fontSize: 16),
                         ),
                         const SizedBox(height: 8),
                         TextButton(
                           onPressed: () async {
                             // Botão para ver tudo caso o usuário queira conferir se salvou errado
-                            final all = await DatabaseHelper.instance
-                                .readAllRoutines();
+                            final all = await DatabaseHelper.instance.readAllRoutines();
                             setState(() {
                               routines = all;
                               todayLabel = "Todas as Atividades";
                             });
                           },
                           child: const Text("Ver todas as atividades"),
-                        ),
+                        )
                       ],
                     ),
                   )
@@ -298,17 +252,16 @@ class _HomePageState extends State<HomePage> {
                     itemBuilder: (context, index) {
                       final routine = routines[index];
                       return TaskCard(
-                        title: routine.activity.name,
+                        title: routine.activity.name,   
                         category: routine.activity.category,
-                        time: routine.time,
-                        duration: routine.duration,
+                        time: routine.time,             
+                        duration: routine.duration,     
                         subtitle: routine.days, // Mostra os dias em que repete
                         onEdit: () async {
                           final saved = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  RoutineFormPage(routine: routine),
+                              builder: (context) => RoutineFormPage(routine: routine),
                             ),
                           );
                           if (saved == true) refreshRoutines();
@@ -347,7 +300,7 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    
     Color categoryColor = Colors.blue;
     if (category == 'Trabalho') categoryColor = Colors.orange;
     if (category == 'Saúde') categoryColor = Colors.redAccent;
@@ -361,11 +314,7 @@ class TaskCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border(left: BorderSide(color: categoryColor, width: 6)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -376,12 +325,8 @@ class TaskCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
+                  title, 
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -393,11 +338,7 @@ class TaskCard extends StatelessWidget {
                 ),
                 child: Text(
                   category,
-                  style: TextStyle(
-                    color: categoryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: categoryColor, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ),
             ],
@@ -405,21 +346,12 @@ class TaskCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(
-                Icons.access_time,
-                size: 16,
-                color: isDark ? Colors.grey : Colors.grey[600],
-              ),
+              Icon(Icons.access_time, size: 16, color: isDark ? Colors.grey : Colors.grey[600]),
               const SizedBox(width: 4),
-              Text(
-                "$time - $duration",
-                style: TextStyle(
-                  color: isDark ? Colors.grey : Colors.grey[600],
-                  fontSize: 13,
-                ),
-              ),
-
+              Text("$time - $duration", style: TextStyle(color: isDark ? Colors.grey : Colors.grey[600], fontSize: 13)),
+              
               const Spacer(), // Empurra os botões para a direita
+
               // --- Botões de Ação ---
               IconButton(
                 padding: EdgeInsets.zero,
@@ -431,11 +363,7 @@ class TaskCard extends StatelessWidget {
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(
-                  Icons.delete,
-                  color: Colors.redAccent,
-                  size: 20,
-                ),
+                icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
                 onPressed: onDelete,
               ),
             ],
