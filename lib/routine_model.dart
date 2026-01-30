@@ -2,7 +2,7 @@ import 'activity_model.dart';
 
 class Routine {
   final int? id;
-  final Activity activity; // A Rotina "tem uma" Atividade
+  final Activity activity;
   final String days;
   final String time;
   final String duration;
