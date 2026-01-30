@@ -14,9 +14,7 @@ class AppDrawer extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Drawer(
-      // Fundo do Menu: Branco no claro, Slate 800 no escuro
       backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-
       child: Column(
         children: [
           // --- CABEÇALHO DO MENU (Perfil) ---
@@ -24,7 +22,6 @@ class AppDrawer extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
             decoration: BoxDecoration(
               border: Border(
-                // Linha divisória mais sutil no modo escuro
                 bottom: BorderSide(
                   color: isDark ? Colors.white10 : Colors.black12,
                 ),
@@ -32,18 +29,13 @@ class AppDrawer extends StatelessWidget {
             ),
             child: Row(
               children: [
+                // 1. Substituição do Icon pelo Image (Avatar)
                 CircleAvatar(
                   radius: 25,
-                  backgroundColor: isDark
-                      ? Colors.white10
-                      : Colors.deepPurple.shade50,
-                  child: Icon(
-                    Icons.person_outline,
-                    color: isDark
-                        ? Colors.deepPurple.shade200
-                        : Colors.deepPurple.shade400,
-                    size: 30,
-                  ),
+                  backgroundColor: isDark ? Colors.white10 : Colors.deepPurple.shade50,
+                  // Aqui usamos o widget Image dentro de um ClipOval ou backgroundImage
+                  backgroundImage: const AssetImage('assets/images/avatar.png'), 
+                  // Se não tiver imagem de avatar ainda, ele fica vazio ou você pode por um child de fallback
                 ),
                 const SizedBox(width: 15),
                 Text(
@@ -51,7 +43,6 @@ class AppDrawer extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    // Texto Branco no escuro
                     color: isDark ? Colors.white : const Color(0xFF1E293B),
                   ),
                 ),
@@ -59,95 +50,73 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
 
-          // --- ITENS DO MENU (Topo) ---
+          // --- ITENS DO MENU ---
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildMenuItem(
+                // 2. Chamada modularizada passando o caminho da imagem
+                _buildImageMenuItem(
                   context: context,
-                  icon: Icons.home_outlined,
+                  imagePath: 'assets/images/ic_home.png', // Nome que definimos antes
                   text: "Home",
                   color: Colors.brown.shade400,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const HomePage(),
-                      ),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const HomePage()));
                   },
                 ),
-                _buildMenuItem(
+                _buildImageMenuItem(
                   context: context,
-                  icon: Icons.calendar_today_outlined,
+                  imagePath: 'assets/images/ic_calendar.png',
                   text: "Visão Semanal",
                   color: Colors.red.shade400,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const WeeklyViewPage(),
-                      ),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const WeeklyViewPage()));
                   },
                 ),
-
-                _buildMenuItem(
+                _buildImageMenuItem(
                   context: context,
-                  icon: Icons.bar_chart_rounded,
+                  imagePath: 'assets/images/ic_chart.png',
                   text: "Relatórios",
                   color: Colors.blue.shade600,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ReportsPage(),
-                      ),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsPage()));
                   },
                 ),
-                _buildMenuItem(
+                _buildImageMenuItem(
                   context: context,
-                  icon: Icons.settings_outlined,
+                  imagePath: 'assets/images/ic_settings.png',
                   text: "Configurações",
                   color: Colors.grey.shade600,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SettingsPage(),
-                      ),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
                   },
                 ),
               ],
             ),
           ),
 
-          // --- RODAPÉ DO MENU ---
           Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
 
-          // BOTÃO TEMA (AGORA FUNCIONAL)
-          _buildMenuItem(
-            context: context,
-            // Alterna ícone: Lua no claro, Sol no escuro
-            icon: isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-            text: isDark ? "Modo Claro" : "Modo Escuro",
-            color: Colors.amber.shade700,
-            onTap: () {
-              // AÇÃO DE TROCAR TEMA
-              ThemeController.instance.toggleTheme();
-            },
+          // Botão Tema (Pode manter Ícone ou mudar para Imagem também)
+          // Vou manter a lógica do ícone aqui pois é dinâmico (sol/lua), 
+          // mas se baixou 'ic_theme.png', pode usar.
+          _buildImageMenuItem(
+             context: context,
+             // Exemplo: se você tiver ic_moon.png e ic_sun.png, pode fazer ternário aqui
+             imagePath: isDark ? 'assets/images/ic_sun.png' : 'assets/images/ic_theme.png', 
+             text: isDark ? "Modo Claro" : "Modo Escuro",
+             color: Colors.amber.shade700,
+             onTap: () => ThemeController.instance.toggleTheme(),
           ),
 
-          _buildMenuItem(
+          _buildImageMenuItem(
             context: context,
-            icon: Icons.logout,
+            imagePath: 'assets/images/ic_logout.png',
             text: "Sair",
             color: Colors.brown.shade700,
             onTap: () {},
@@ -158,29 +127,35 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  // Widget auxiliar atualizado para receber Contexto e tratar Dark Mode
-  Widget _buildMenuItem({
-    required BuildContext context, // Necessário para ler o tema
-    required IconData icon,
+  // --- WIDGET MODULARIZADO PARA IMAGEM ---
+  Widget _buildImageMenuItem({
+    required BuildContext context,
+    required String imagePath, // Recebe string em vez de IconData
     required String text,
-    Color? color, // Agora é opcional
-    bool isBold = false,
+    Color? color,
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Cor do ícone: Se foi passada uma cor, usa ela.
-    // Se não (null), usa Cinza no claro e BrancoTransparente no escuro.
-    final iconColor = color ?? (isDark ? Colors.white70 : Colors.black54);
+    
+    // Define a cor para "tingir" a imagem PNG (importante para o Dark Mode)
+    final imageColor = color ?? (isDark ? Colors.white70 : Colors.black54);
 
     return ListTile(
-      leading: Icon(icon, color: iconColor, size: 26),
+      leading: Image.asset(
+        imagePath,
+        width: 24, // Tamanho fixo para simular ícone
+        height: 24,
+        color: imageColor, // Isso pinta o PNG da cor desejada (se o PNG for transparente)
+        errorBuilder: (context, error, stackTrace) {
+          // Fallback caso a imagem não exista ainda: mostra um ícone de alerta
+          return Icon(Icons.broken_image, color: imageColor);
+        },
+      ),
       title: Text(
         text,
         style: TextStyle(
           fontSize: 16,
-          fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-          // Cor do texto se adapta ao fundo
+          fontWeight: FontWeight.w500,
           color: isDark ? Colors.white : Colors.black87,
         ),
       ),
