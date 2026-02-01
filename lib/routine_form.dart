@@ -25,7 +25,8 @@ class _RoutineFormPageState extends State<RoutineFormPage> {
   // Controladores
   final _activityController = TextEditingController();
   final _timeController = TextEditingController(text: "14:00");
-  final _durationController = TextEditingController(text: "1h 30 min");
+  // MUDANÇA: Agora controlamos o Horário Final, não o texto da duração diretamente
+  final _endTimeController = TextEditingController(text: "15:00"); 
   final _notesController = TextEditingController();
 
   String selectedCategory = 'Estudo';
@@ -44,40 +45,91 @@ class _RoutineFormPageState extends State<RoutineFormPage> {
       _activityController.text = r.activity.name;
       selectedCategory = r.activity.category;
       _timeController.text = r.time;
-      _durationController.text = r.duration;
       _notesController.text = r.notes ?? '';
       
       if (r.days.isNotEmpty) {
         selectedDays = r.days.split(', ').where((d) => d.isNotEmpty).toList();
       }
+
+      // LÓGICA MÁGICA: Calcular o horário de término baseado na duração salva
+      _calculateEndTimeFromDuration(r.time, r.duration);
     } 
     // CENÁRIO 2: CRIAÇÃO
     else {
       if (widget.initialTime != null) _timeController.text = widget.initialTime!;
+      
+      // Define o término padrão para 1 hora depois do início
+      _updateEndTimeBasedOnStart(widget.initialTime ?? "14:00");
+
       if (widget.initialDay != null && !selectedDays.contains(widget.initialDay!)) {
         selectedDays.add(widget.initialDay!);
       }
     }
   }
 
-  // --- NOVA FUNÇÃO: SELECIONAR HORA (SPRINT 4) ---
-  Future<void> _pickTime() async {
-    // Tenta ler a hora atual do campo para abrir o relógio nela
-    int hour = 14;
+  // Auxiliar: Converte "HH:MM" para minutos totais do dia
+  int _timeToMinutes(String time) {
+    try {
+      final parts = time.split(':');
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // Auxiliar: Converte minutos totais para "HH:MM"
+  String _minutesToTime(int totalMinutes) {
+    // Garante que fique dentro de 24h
+    final minutes = totalMinutes % (24 * 60);
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  }
+
+  // Ao criar/mudar hora inicio, joga o fim pra 1h depois
+  void _updateEndTimeBasedOnStart(String startTime) {
+    int startMin = _timeToMinutes(startTime);
+    int endMin = startMin + 60; // +1 hora
+    _endTimeController.text = _minutesToTime(endMin);
+  }
+
+  // Ao editar, lê "1h 30 min" e define o relógio final
+  void _calculateEndTimeFromDuration(String startTime, String durationStr) {
+    int startMin = _timeToMinutes(startTime);
+    int durationMin = 0;
+
+    // Parser simples de duração
+    final numbers = durationStr.split(RegExp(r'[^0-9]')).where((e) => e.isNotEmpty).map(int.parse).toList();
+    
+    if (durationStr.contains(':')) {
+       if (numbers.isNotEmpty) durationMin += numbers[0] * 60;
+       if (numbers.length > 1) durationMin += numbers[1];
+    } else {
+       if (durationStr.contains('h')) {
+          if (numbers.isNotEmpty) durationMin += numbers[0] * 60;
+          if (numbers.length > 1) durationMin += numbers[1];
+       } else {
+          if (numbers.isNotEmpty) durationMin += numbers[0];
+       }
+    }
+
+    _endTimeController.text = _minutesToTime(startMin + durationMin);
+  }
+
+  // Seletor Genérico de Hora
+  Future<void> _pickTimeGeneric(TextEditingController controller) async {
+    int hour = 12;
     int minute = 0;
     try {
-      final parts = _timeController.text.split(':');
-      if (parts.length == 2) {
-        hour = int.parse(parts[0]);
-        minute = int.parse(parts[1]);
-      }
+      final parts = controller.text.split(':');
+      hour = int.parse(parts[0]);
+      minute = int.parse(parts[1]);
     } catch (_) {}
 
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: hour, minute: minute),
       builder: (context, child) {
-        // Ajuste de cor para o relógio ficar bonito no Dark Mode
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return Theme(
           data: isDark ? ThemeData.dark() : ThemeData.light().copyWith(
@@ -89,11 +141,10 @@ class _RoutineFormPageState extends State<RoutineFormPage> {
     );
 
     if (picked != null) {
-      // Formata para sempre ter 2 dígitos (ex: 08:05)
       final formattedHour = picked.hour.toString().padLeft(2, '0');
       final formattedMinute = picked.minute.toString().padLeft(2, '0');
       setState(() {
-        _timeController.text = "$formattedHour:$formattedMinute";
+        controller.text = "$formattedHour:$formattedMinute";
       });
     }
   }
@@ -199,13 +250,12 @@ class _RoutineFormPageState extends State<RoutineFormPage> {
 
               Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _buildSectionTitle("Horário", isDark),
+                  _buildSectionTitle("Início", isDark),
                   const SizedBox(height: 8),
-                  // --- CAMPO DE HORA COM CLIQUE (SPRINT 4) ---
                   TextFormField(
                     controller: _timeController,
-                    readOnly: true, // Impede digitar texto
-                    onTap: _pickTime, // Abre o relógio ao clicar
+                    readOnly: true,
+                    onTap: () => _pickTimeGeneric(_timeController),
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                     decoration: _inputDecoration("00:00", isDark).copyWith(
                       suffixIcon: const Icon(Icons.access_time, size: 20),
@@ -214,12 +264,18 @@ class _RoutineFormPageState extends State<RoutineFormPage> {
                 ])),
                 const SizedBox(width: 16),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _buildSectionTitle("Duração", isDark),
+                  // MUDANÇA NO TÍTULO
+                  _buildSectionTitle("Término", isDark),
                   const SizedBox(height: 8),
                   TextFormField(
-                    controller: _durationController,
+                    // MUDANÇA NO CONTROLLER (Agora é Hora Final)
+                    controller: _endTimeController,
+                    readOnly: true,
+                    onTap: () => _pickTimeGeneric(_endTimeController),
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                    decoration: _inputDecoration("Ex: 30 min", isDark),
+                    decoration: _inputDecoration("00:00", isDark).copyWith(
+                      suffixIcon: const Icon(Icons.access_time_filled, size: 20),
+                    ),
                   ),
                 ])),
               ]),
@@ -248,6 +304,20 @@ class _RoutineFormPageState extends State<RoutineFormPage> {
                     }
 
                     try {
+                      // CÁLCULO DA DURAÇÃO ANTES DE SALVAR
+                      int start = _timeToMinutes(_timeController.text);
+                      int end = _timeToMinutes(_endTimeController.text);
+                      
+                      // Ajuste para virada de noite (ex: 23:00 as 01:00)
+                      if (end < start) end += (24 * 60);
+                      
+                      int diff = end - start;
+                      int h = diff ~/ 60;
+                      int m = diff % 60;
+                      
+                      // Gera string compatível com o banco: "1h 30 min"
+                      String durationString = "${h}h ${m}min";
+
                       final activity = Activity(
                         name: _activityController.text.isNotEmpty ? _activityController.text : "Atividade",
                         category: selectedCategory,
@@ -258,7 +328,7 @@ class _RoutineFormPageState extends State<RoutineFormPage> {
                         activity: activity, 
                         days: selectedDays.join(', '),
                         time: _timeController.text,
-                        duration: _durationController.text,
+                        duration: durationString, // Salva calculado
                         notes: _notesController.text,
                       );
 
@@ -269,7 +339,6 @@ class _RoutineFormPageState extends State<RoutineFormPage> {
                       }
 
                       if (context.mounted) {
-                        // FEEDBACK DE SUCESSO
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(isEditing ? "Atividade atualizada!" : "Atividade criada!"),
