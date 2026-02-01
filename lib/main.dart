@@ -69,6 +69,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Routine> routines = [];
+  Set<int> completedIds = {}; // <--- NOVO: Lista de IDs concluídos hoje
   bool isLoading = true;
   String todayLabel = ""; 
 
@@ -107,26 +108,55 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future refreshRoutines() async {
-    if (kIsWeb) {
-      setState(() => isLoading = false);
-      return;
-    }
+    if (kIsWeb) return;
 
     setState(() => isLoading = true);
 
     try {
-      final allRoutines = await DatabaseHelper.instance.readAllRoutines();
+      final now = DateTime.now();
       final todayTag = _getWeekDayAbbreviation();
       todayLabel = _getFullWeekDayName(); 
 
-      routines = allRoutines.where((r) {
+      // 1. Busca Rotinas
+      final allRoutines = await DatabaseHelper.instance.readAllRoutines();
+      final filteredRoutines = allRoutines.where((r) {
         return r.days.contains(todayTag);
       }).toList();
+
+      // 2. Busca Conclusões de HOJE (NOVO)
+      final allCompletions = await DatabaseHelper.instance.getCompletions();
+      final todayStr = "${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}";
+      
+      final idsDoneToday = <int>{};
+      for (var c in allCompletions) {
+        if (c['date'] == todayStr) {
+          idsDoneToday.add(c['routine_id'] as int);
+        }
+      }
+
+      setState(() {
+        routines = filteredRoutines;
+        completedIds = idsDoneToday;
+      });
+
     } catch (e) {
       print("Erro: $e");
     }
 
     setState(() => isLoading = false);
+  }
+
+  // --- NOVA LÓGICA: CHECK / UNCHECK ---
+  Future<void> _toggleStatus(int routineId, bool? value) async {
+    final now = DateTime.now();
+    
+    if (value == true) {
+      await DatabaseHelper.instance.completeRoutine(routineId, now);
+    } else {
+      await DatabaseHelper.instance.uncompleteRoutine(routineId, now);
+    }
+    // Recarrega para atualizar a tela
+    refreshRoutines();
   }
 
   Future<void> _deleteRoutine(int id) async {
@@ -159,6 +189,10 @@ class _HomePageState extends State<HomePage> {
     final now = DateTime.now();
     final dateString = "${now.day}/${now.month}/${now.year}";
 
+    // Calcula progresso do dia
+    final total = routines.length;
+    final done = completedIds.where((id) => routines.any((r) => r.id == id)).length;
+    
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
@@ -198,34 +232,44 @@ class _HomePageState extends State<HomePage> {
             ),
             child: Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Hoje ($todayLabel)",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Hoje ($todayLabel)",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      dateString,
-                      style: const TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "${routines.length} atividades para hoje",
-                      style: TextStyle(
-                        color: isDark
-                            ? Colors.blueAccent
-                            : const Color(0xFF2B4C8C),
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 4),
+                      Text(
+                        dateString,
+                        style: const TextStyle(color: Colors.grey, fontSize: 14),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      // Texto de progresso dinâmico
+                      Text(
+                        total == 0 
+                          ? "Sem atividades." 
+                          : "$done de $total concluídas",
+                        style: TextStyle(
+                          color: isDark ? Colors.greenAccent : const Color(0xFF2B4C8C),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                // Icone de progresso (Opcional)
+                if(total > 0)
+                  CircularProgressIndicator(
+                    value: done / total,
+                    backgroundColor: Colors.grey[300],
+                    color: Colors.green,
+                  )
               ],
             ),
           ),
@@ -238,16 +282,9 @@ class _HomePageState extends State<HomePage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // --- WIDGET IMAGE ---
                         Opacity(
                           opacity: 0.8,
-                          child: Image.asset(
-                            'assets/images/empty_state.png',
-                            height: 150,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(Icons.event_available, size: 80, color: Colors.grey[300]);
-                            },
-                          ),
+                          child: Icon(Icons.event_available, size: 80, color: Colors.grey[300]),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -257,28 +294,20 @@ class _HomePageState extends State<HomePage> {
                             fontSize: 16,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () async {
-                            final all = await DatabaseHelper.instance.readAllRoutines();
-                            setState(() {
-                              routines = all;
-                              todayLabel = "Todas as Atividades";
-                            });
-                          },
-                          child: const Text("Ver todas as atividades"),
-                        ),
                       ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 0), // O Card já tem margin
+                    padding: const EdgeInsets.symmetric(horizontal: 0), 
                     itemCount: routines.length,
                     itemBuilder: (context, index) {
                       final routine = routines[index];
+                      final isDone = completedIds.contains(routine.id);
                       
                       return RoutineCard(
                         routine: routine,
+                        isCompleted: isDone, // Passa status
+                        onCheckChanged: (val) => _toggleStatus(routine.id!, val), // Passa ação
                         onTap: () async {
                           final saved = await Navigator.push(
                             context,

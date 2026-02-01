@@ -13,16 +13,14 @@ class ReportsPage extends StatefulWidget {
 }
 
 class _ReportsPageState extends State<ReportsPage> {
-  // Estado
   late DateTime currentWeekStart;
   bool isLoading = true;
 
   // Estatísticas
   int plannedCount = 0;
-  int doneCount = 0;
+  int doneCount = 0; // Concluído "no tempo certo"
   int notDoneCount = 0;
-  // Parcial vamos deixar 0 por enquanto, pois precisaria de logica de "meio feito"
-  int partialCount = 0; 
+  int partialCount = 0; // Concluído com desvio de tempo
   
   double plannedHours = 0;
   double doneHours = 0;
@@ -30,7 +28,6 @@ class _ReportsPageState extends State<ReportsPage> {
   @override
   void initState() {
     super.initState();
-    // Começa no domingo da semana atual
     final now = DateTime.now();
     currentWeekStart = now.subtract(Duration(days: now.weekday % 7));
     _loadData();
@@ -50,39 +47,66 @@ class _ReportsPageState extends State<ReportsPage> {
       final exceptionsRaw = await DatabaseHelper.instance.getExceptions();
       final completionsRaw = await DatabaseHelper.instance.getCompletions();
 
-      // Sets para busca rápida "ID|YYYY-MM-DD"
+      // Sets e Maps para busca rápida
       final exceptionSet = exceptionsRaw.map((e) => "${e['routine_id']}|${e['date']}").toSet();
-      final completionSet = completionsRaw.map((e) => "${e['routine_id']}|${e['date']}").toSet();
+      
+      // Map para pegar o horário exato da conclusão: "ID|DATA" -> "2026-02-01T14:30:00"
+      final completionMap = {
+        for (var e in completionsRaw) "${e['routine_id']}|${e['date']}": e['completed_at'] as String
+      };
 
       // Zera contadores
       int pCount = 0;
       int dCount = 0;
+      int partCount = 0;
       double pHours = 0;
       double dHours = 0;
 
-      // Itera os 7 dias da semana selecionada
+      // Itera os 7 dias da semana
       for (int i = 0; i < 7; i++) {
         final date = currentWeekStart.add(Duration(days: i));
         final dateStr = _formatDateDb(date);
-        final weekDayAbbr = _getWeekDayAbbr(date.weekday); // Seg, Ter...
+        final weekDayAbbr = _getWeekDayAbbr(date.weekday);
 
-        // Para cada rotina, vê se ela cai neste dia
         for (var r in routines) {
           if (r.days.contains(weekDayAbbr)) {
             final key = "${r.id}|$dateStr";
 
-            // Se for exceção, ignora (foi apagada neste dia)
+            // Se for exceção, ignora
             if (exceptionSet.contains(key)) continue;
 
-            // É uma atividade válida!
+            // É planejado
             pCount++;
             final durationInHours = _parseDuration(r.duration);
             pHours += durationInHours;
 
-            // Foi concluída?
-            if (completionSet.contains(key)) {
-              dCount++;
+            // Verificando Conclusão
+            if (completionMap.containsKey(key)) {
               dHours += durationInHours;
+
+              // --- LÓGICA DE PARCIAL / DESVIO DE TEMPO ---
+              final completedAtStr = completionMap[key]!;
+              final completedAt = DateTime.parse(completedAtStr);
+
+              // Calcula quando deveria terminar (Dia Atual + Hora Inicio + Duração)
+              final plannedEndTime = _calculatePlannedEndTime(date, r.time, r.duration);
+              
+              if (plannedEndTime != null) {
+                // Diferença em minutos entre o Real e o Planejado
+                final diffMinutes = completedAt.difference(plannedEndTime).inMinutes;
+
+                // CRITÉRIO: Se o desvio for maior que 30 minutos (para mais ou menos)
+                // "Excede o tempo ou muito menos tempo"
+                if (diffMinutes.abs() > 30) {
+                  partCount++; // Conta como Parcial
+                } else {
+                  dCount++; // Conta como Concluído (Sucesso)
+                }
+              } else {
+                // Se der erro no calculo, assume concluído normal
+                dCount++;
+              }
+
             }
           }
         }
@@ -91,7 +115,8 @@ class _ReportsPageState extends State<ReportsPage> {
       setState(() {
         plannedCount = pCount;
         doneCount = dCount;
-        notDoneCount = pCount - dCount; // O que sobrou é "Não realizado"
+        partialCount = partCount;
+        notDoneCount = pCount - (dCount + partCount); // O que sobra é não realizado
         plannedHours = pHours;
         doneHours = dHours;
         isLoading = false;
@@ -103,13 +128,48 @@ class _ReportsPageState extends State<ReportsPage> {
     }
   }
 
-  // Auxiliares
+  // --- MATEMÁTICA DE DATAS ---
+  
+  // Retorna a Data/Hora que a tarefa deveria acabar neste dia específico
+  DateTime? _calculatePlannedEndTime(DateTime date, String startTime, String durationStr) {
+    try {
+      // 1. Hora de Inicio
+      final timeParts = startTime.split(':');
+      final startHour = int.parse(timeParts[0]);
+      final startMin = int.parse(timeParts[1]);
+
+      // 2. Duração em minutos
+      int durationMinutes = 0;
+      final d = durationStr.toLowerCase();
+      final numbers = d.split(RegExp(r'[^0-9]')).where((e) => e.isNotEmpty).map(int.parse).toList();
+
+      if (d.contains(':')) {
+        if (numbers.isNotEmpty) durationMinutes += numbers[0] * 60;
+        if (numbers.length > 1) durationMinutes += numbers[1];
+      } else {
+        if (d.contains('h')) {
+           if (numbers.isNotEmpty) durationMinutes += numbers[0] * 60;
+           if (numbers.length > 1) durationMinutes += numbers[1];
+        } else {
+           if (numbers.isNotEmpty) durationMinutes += numbers[0];
+        }
+      }
+
+      // Cria a data base (Dia do loop às 00:00)
+      final baseDate = DateTime(date.year, date.month, date.day, startHour, startMin);
+      
+      // Soma a duração
+      return baseDate.add(Duration(minutes: durationMinutes));
+    } catch (e) {
+      return null;
+    }
+  }
+
   String _formatDateDb(DateTime d) {
     return "${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}";
   }
 
   String _getWeekDayAbbr(int weekday) {
-    // DateTime: 1=Seg, 7=Dom. Nosso DB usa Strings.
     switch (weekday) {
       case 1: return 'Seg';
       case 2: return 'Ter';
@@ -123,35 +183,22 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   double _parseDuration(String durationStr) {
-    // Tenta converter "1h 30 min", "01:30", "30 min" para double horas
-    // Ex: 1h 30 min -> 1.5
     try {
       double total = 0;
-      // Normaliza
       String s = durationStr.toLowerCase().replaceAll(':', ' '); 
-      
-      // Regex simples para capturar números
-      // Se tiver "h", o numero antes é hora. Se tiver "m", é minuto.
-      // Abordagem simplificada: split por espaço
-      final parts = s.split(RegExp(r'[^0-9]')); // Split por não-números
+      final parts = s.split(RegExp(r'[^0-9]'));
       final numbers = parts.where((e) => e.isNotEmpty).map(int.parse).toList();
 
       if (durationStr.contains(':')) {
-        // Formato HH:MM
         if (numbers.isNotEmpty) total += numbers[0];
         if (numbers.length > 1) total += numbers[1] / 60.0;
       } else {
-        // Formato texto (ex: 1h 30min)
-        // Essa lógica é frágil se o usuário digitar qualquer coisa, 
-        // mas serve para o padrão sugerido "1h 30 min"
         if (durationStr.contains('h')) {
-             // Assume o primeiro numero é hora
              if (numbers.isNotEmpty) total += numbers[0];
              if (numbers.length > 1) total += numbers[1] / 60.0;
         } else if (durationStr.contains('min')) {
              if (numbers.isNotEmpty) total += numbers[0] / 60.0;
         } else {
-             // Só numero? assume min
              if (numbers.isNotEmpty) total += numbers[0] / 60.0;
         }
       }
@@ -174,21 +221,22 @@ class _ReportsPageState extends State<ReportsPage> {
     const plannedColor = Color(0xFF90A4AE);
     const doneColor = Color(0xFF00BFA5);
     const notDoneColor = Color(0xFFEF5350);
-    const partialColor = Color(0xFFFFA000);
+    const partialColor = Color(0xFFFFA000); // Laranja para Parcial
 
     final appBarBg = isDark ? const Color(0xFF0B1220) : const Color(0xFF1E3A8A);
 
-    // Textos de data
     final startStr = DateFormat('dd/MM').format(currentWeekStart);
     final endStr = DateFormat('dd/MM').format(currentWeekStart.add(const Duration(days: 6)));
     final diffHours = (doneHours - plannedHours).toStringAsFixed(1);
     final diffLabel = (doneHours - plannedHours) >= 0 ? "+$diffHours" : diffHours;
 
     // Insight calculation
-    final percent = plannedCount > 0 ? (doneCount / plannedCount * 100).toInt() : 0;
+    final totalDone = doneCount + partialCount; // Soma os dois tipos de feito
+    final percent = plannedCount > 0 ? (totalDone / plannedCount * 100).toInt() : 0;
+    
     String insightText = "Você cumpriu $percent%\ndo planejado.";
-    if (percent < 50) insightText = "Semana difícil?\nVamos recuperar!";
-    if (percent > 90) insightText = "Excelente semana!\nQuase 100%!";
+    if (partialCount > doneCount) insightText = "Muitos horários\ndesviados.";
+    else if (percent > 90) insightText = "Excelente semana!\nQuase 100%!";
 
     return Scaffold(
       drawer: const AppDrawer(),
@@ -213,14 +261,6 @@ class _ReportsPageState extends State<ReportsPage> {
           IconButton(
             icon: const Icon(Icons.brightness_6_outlined, color: Colors.white),
             onPressed: () => ThemeController.instance.toggleTheme(),
-          ),
-          IconButton(
-            icon: const CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.white24,
-              child: Icon(Icons.person, color: Colors.white, size: 20),
-            ),
-            onPressed: () {},
           ),
           const SizedBox(width: 12),
         ],
@@ -283,7 +323,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _MiniStatCard(
-                    title: "Concluídos",
+                    title: "Concluídos", // Concluído certinho
                     quantity: doneCount,
                     borderColor: doneColor,
                     bg: cardBg,
@@ -298,7 +338,7 @@ class _ReportsPageState extends State<ReportsPage> {
               children: [
                 Expanded(
                   child: _MiniStatCard(
-                    title: "Pendentes",
+                    title: "Pendentes", // Não checados
                     quantity: notDoneCount,
                     borderColor: notDoneColor,
                     bg: cardBg,
@@ -308,9 +348,9 @@ class _ReportsPageState extends State<ReportsPage> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  // Mantido estático ou 0 pois requer lógica complexa
+                  // AGORA MOSTRA OS PARCIAIS REAIS
                   child: _MiniStatCard(
-                    title: "Parcial",
+                    title: "Parcial", // Concluído com desvio > 30min
                     quantity: partialCount,
                     borderColor: partialColor,
                     bg: cardBg,
@@ -369,7 +409,9 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 }
 
-// ===================== WIDGETS ATUALIZADOS =====================
+// ... WIDGETS AUXILIARES (Pode manter os mesmos de antes: _WeekSelector, _SummaryCard, etc.) ...
+// Como são os mesmos que enviei antes, não precisa colar de novo se já tiver, 
+// mas para garantir, vou colar apenas os widgets abaixo para o arquivo ficar completo:
 
 class _WeekSelector extends StatelessWidget {
   final bool isDark;
@@ -608,7 +650,6 @@ class _WeeklyChart extends StatelessWidget {
     if (ph > 0) {
       donePct = (dh / ph).clamp(0.0, 1.0);
     } else if (dh > 0) {
-      // Se não planejou nada mas fez, barra cheia
       donePct = 1.0; 
     }
 
@@ -631,7 +672,6 @@ class _WeeklyChart extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // Planejado
           _ChartRow(
             label: "Planejado",
             rightText: "${ph.toStringAsFixed(1)}h",
@@ -644,7 +684,6 @@ class _WeeklyChart extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          // Realizado
           _ChartRow(
             label: "Realizado",
             rightText: "${dh.toStringAsFixed(1)}h",
